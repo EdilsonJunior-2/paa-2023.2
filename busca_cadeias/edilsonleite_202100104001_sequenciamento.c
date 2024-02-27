@@ -20,10 +20,9 @@ int notEmpty(char c)
 void buildArray(char *path, int M, int *kmpArray)
 {
     int len = 0;
-
     kmpArray[0] = 0;
-
     int i = 1;
+
     while (i < M)
     {
         if (path[i] == path[len])
@@ -46,34 +45,44 @@ void buildArray(char *path, int M, int *kmpArray)
         }
     }
 }
-void kmp(char *path, char *main)
+void kmp(char *path, char *main, int subChainMinSize)
 {
     int pathLength = strlen(path);
     int mainLength = strlen(main);
     int *kmpArray = (int *)malloc(pathLength * sizeof(int));
     buildArray(path, pathLength, kmpArray);
-
-    int i = 0, j = 0;
-    while ((mainLength - i) >= (pathLength - j))
+    printf("KMP table: ");
+    for(int a = 0; a < pathLength; a++){
+        printf("%d ", kmpArray[a]);
+    }
+    printf(", Path: %s\n", path);
+    int i = 0, j = 0, subChainSize = 0, chainSizeFound = 0;
+    while (i < mainLength)
     {
+    printf("path[j]: %c, main[i]: %c\n",  path[j], main[i]);
         if (path[j] == main[i])
         {
             j++;
             i++;
+            subChainSize++;
         }
         if (j == pathLength)
         {
-            printf("%s Found pattern at index %d\n", path, i - j);
+            printf("Found pattern at index %d\n", i - j);
             j = kmpArray[j - 1];
         }
         else if (i < mainLength && path[j] != main[i])
         {
             if (j != 0)
+            {
                 j = kmpArray[j - 1];
+            }
             else
                 i++;
         }
     }
+    printf("%d\n", subChainSize);
+    free(kmpArray);
 }
 
 int main(int argc, char *argv[])
@@ -95,40 +104,21 @@ int main(int argc, char *argv[])
         dna[dnaSize - 1] = tempChar;
     }
     fscanf(input, "%d", &deseaseCount);
-    tempChar = fgetc(input);
-    Desease *deseases = (Desease *)malloc(sizeof(Desease));
+    // Desease *deseases = (Desease *)malloc(sizeof(Desease));
 
     for (int i = 0; i < deseaseCount; i++)
     {
-        int deseaseNameSize = 1;
-        char *deseaseName = (char *)malloc(sizeof(char) * deseaseNameSize);
-        while ((tempChar = fgetc(input)) != 32)
-        {
-            deseaseName[deseaseNameSize - 1] = tempChar;
-            deseaseNameSize++;
-            deseaseName = (char *)realloc(deseaseName, sizeof(char) * deseaseNameSize);
-        }
-        deseaseName[deseaseNameSize - 1] = '\0';
-        strcpy(deseases[i].name, deseaseName);
-        free(deseaseName);
+        char *deseaseName = (char *)malloc(sizeof(char) * 8);
         int numberOfGenes;
-        fscanf(input, "%d", &numberOfGenes);
-        tempChar = fgetc(input);
-
+        fscanf(input, "%s %d", deseaseName, &numberOfGenes);
         for (int j = 0; j < numberOfGenes; j++)
         {
-            int deseaseGeneSize = 1;
-            char *deseaseGene = (char *)malloc(deseaseGeneSize);
-            while (notEmpty(tempChar = fgetc(input)) == 1)
-            {
-                deseaseGene[deseaseGeneSize - 1] = tempChar;
-                deseaseGeneSize++;
-                deseaseGene = realloc(deseaseGene, deseaseGeneSize);
-            }
-            deseaseGene[deseaseGeneSize - 1] = '\0';
-            kmp(deseaseGene, dna);
+            char *deseaseGene = (char *)malloc(sizeof(char) * dnaSize);
+            fscanf(input, "%s", deseaseGene);
+            kmp(deseaseGene, dna, subChainSize);
             free(deseaseGene);
         }
+        free(deseaseName);
     }
     free(dna);
     fclose(input);

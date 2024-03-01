@@ -5,7 +5,7 @@
 typedef struct
 {
     char name[8];
-    int canGetSick;
+    double canGetSick;
 } Desease;
 
 int notEmpty(char c);
@@ -17,72 +17,121 @@ int notEmpty(char c)
     return 0;
 }
 
-void buildArray(char *path, int M, int *kmpArray)
+void conquer(Desease *entry, int start_position, int middle, int final_position)
 {
-    int len = 0;
-    kmpArray[0] = 0;
-    int i = 1;
+	int start_aux = start_position;
+	int ahead_middle = middle + 1;
+	int start_aux_2 = 0;
+	Desease *temp = (Desease *)malloc((final_position - start_position + 1) * sizeof(Desease));
 
-    while (i < M)
+	while (start_aux <= middle && ahead_middle <= final_position)
+	{
+		if (entry[start_aux].canGetSick >= entry[ahead_middle].canGetSick)
+		{
+			strcpy(temp[start_aux_2].name, entry[start_aux].name);
+			temp[start_aux_2].canGetSick = entry[start_aux].canGetSick;
+			start_aux += 1;
+		}
+		else
+		{
+			strcpy(temp[start_aux_2].name, entry[ahead_middle].name);
+			temp[start_aux_2].canGetSick = entry[ahead_middle].canGetSick;
+			ahead_middle += 1;
+		}
+		start_aux_2 += 1;
+	}
+
+	while (start_aux <= middle)
+	{
+		strcpy(temp[start_aux_2].name, entry[start_aux].name);
+		temp[start_aux_2].canGetSick = entry[start_aux].canGetSick;
+		start_aux += 1;
+		start_aux_2 += 1;
+	}
+
+	while (ahead_middle <= final_position)
+	{
+		strcpy(temp[start_aux_2].name, entry[ahead_middle].name);
+		temp[start_aux_2].canGetSick = entry[ahead_middle].canGetSick;
+		ahead_middle += 1;
+		start_aux_2 += 1;
+	}
+
+	for (int i = 0; i < (final_position - start_position + 1); i++)
+	{
+		strcpy(entry[start_position + i].name, temp[i].name);
+		entry[start_position + i].canGetSick = temp[i].canGetSick;
+	}
+
+	free(temp);
+}
+
+void divide(Desease *entry, int start_position, int final_position)
+{
+	if (start_position < final_position)
+	{
+		int middle = start_position + (final_position - start_position) / 2;
+		divide(entry, start_position, middle);
+		divide(entry, middle + 1, final_position);
+		conquer(entry, start_position, middle, final_position);
+	}
+}
+
+void buildTable(int *kmpArray, char *pattern, int patternLength)
+{
+    int j = -1;
+    for (int i = 1; i < patternLength; i++)
     {
-        if (path[i] == path[len])
+        while (j >= 0 && pattern[j + 1] != pattern[i])
         {
-            len++;
-            kmpArray[i] = len;
-            i++;
+            j = kmpArray[j];
         }
-        else
-        {
-            if (len != 0)
-            {
-                len = kmpArray[len - 1];
-            }
-            else
-            {
-                kmpArray[i] = 0;
-                i++;
-            }
-        }
+        if (pattern[j + 1] == pattern[i])
+            j++;
+        kmpArray[i] = j;
     }
 }
-void kmp(char *path, char *main, int subChainMinSize)
+
+int kmp(char *path, char *main, int subChainMinSize, int *kmpArray)
 {
     int pathLength = strlen(path);
     int mainLength = strlen(main);
-    int *kmpArray = (int *)malloc(pathLength * sizeof(int));
-    buildArray(path, pathLength, kmpArray);
-    printf("KMP table: ");
-    for(int a = 0; a < pathLength; a++){
-        printf("%d ", kmpArray[a]);
-    }
-    printf(", Path: %s\n", path);
-    int i = 0, j = 0, subChainSize = 0, chainSizeFound = 0;
-    while (i < mainLength)
+    for (int i = 0; i < pathLength; i++)
+        kmpArray[i] = -1;
+    buildTable(kmpArray, path, pathLength);
+    int subChainSize = 0;
+    
+    for (int i = 0, j = -1; i < mainLength; i++)
     {
-    printf("path[j]: %c, main[i]: %c\n",  path[j], main[i]);
-        if (path[j] == main[i])
+        while (j >= 0 && path[j + 1] != main[i])
         {
-            j++;
-            i++;
-            subChainSize++;
-        }
-        if (j == pathLength)
-        {
-            printf("Found pattern at index %d\n", i - j);
-            j = kmpArray[j - 1];
-        }
-        else if (i < mainLength && path[j] != main[i])
-        {
-            if (j != 0)
+            if (j + 1 >= subChainMinSize)
             {
-                j = kmpArray[j - 1];
+                subChainSize += j + 1;
+                // verificando se já atingiu 90% de compatibilidade do gene
+                if (subChainSize / (double)pathLength >= 0.9)
+                {
+                    printf("Gene found\n");
+                    return 1;
+                }
+                for (long long unsigned int k = 0; k < strlen(path) - j + 1; k++)
+                {
+                    path[k] = path[k + j + 1];
+                    kmpArray[k] = -1;
+                }
+                path[pathLength - subChainSize] = 0;
+                buildTable(kmpArray, path, strlen(path));
+                j = -1;
             }
             else
-                i++;
+            {
+                j = kmpArray[j];
+            }
         }
+        if (path[j + 1] == main[i])
+            j++;
     }
-    printf("%d\n", subChainSize);
-    free(kmpArray);
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -104,22 +153,35 @@ int main(int argc, char *argv[])
         dna[dnaSize - 1] = tempChar;
     }
     fscanf(input, "%d", &deseaseCount);
-    // Desease *deseases = (Desease *)malloc(sizeof(Desease));
+    Desease *deseases = (Desease *)malloc(deseaseCount * sizeof(Desease));
 
     for (int i = 0; i < deseaseCount; i++)
     {
         char *deseaseName = (char *)malloc(sizeof(char) * 8);
         int numberOfGenes;
+        int compatibleGeneCount = 0;
         fscanf(input, "%s %d", deseaseName, &numberOfGenes);
+        printf("%s\n", deseaseName);
+        strcpy(deseases[i].name, deseaseName);
         for (int j = 0; j < numberOfGenes; j++)
         {
             char *deseaseGene = (char *)malloc(sizeof(char) * dnaSize);
             fscanf(input, "%s", deseaseGene);
-            kmp(deseaseGene, dna, subChainSize);
+            int *kmpArray = (int *)malloc(strlen(deseaseGene) * sizeof(int));
+            compatibleGeneCount += kmp(deseaseGene, dna, subChainSize, kmpArray);
             free(deseaseGene);
+            free(kmpArray);
         }
+        deseases[i].canGetSick = (double)compatibleGeneCount/(double)numberOfGenes;
         free(deseaseName);
     }
+
+    divide(deseases, 0, deseaseCount - 1);
+    for(int i = 0; i < deseaseCount; i++){
+        fprintf(output, "%s=>%.0lf%\n", deseases[i].name, (deseases[i].canGetSick*100));
+    }
+
+    free(deseases);
     free(dna);
     fclose(input);
     fclose(output);
